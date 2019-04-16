@@ -1,6 +1,6 @@
 {
-  "name": "cypress-react-unit-test",
-  "version": "0.0.0-development",
+  "name": "@zelz/cypress-react-unit-test",
+  "version": "2.5.0",
   "description": "Unit test React components using Cypress",
   "main": "dist",
   "module": "lib",

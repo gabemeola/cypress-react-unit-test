@@ -11,7 +11,7 @@ interface ReactModule {
 
 declare namespace Cypress {
   interface Cypress {
-    stylesCache: any
+    stylesCache: Map<string, Array<Node>>
     React: string
     ReactDOM: string
     Styles: string

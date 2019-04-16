@@ -2,7 +2,7 @@
 
 // having weak reference to styles prevents garbage collection
 // and "losing" styles when the next test starts
-const stylesCache = new Map()
+const stylesCache = new Map<string, Array<Node>>()
 
 const setXMLHttpRequest = w => {
   // by grabbing the XMLHttpRequest from app's iframe
@@ -58,31 +58,45 @@ Cypress.Commands.add('copyComponentStyles', component => {
   // by the JSX preprocessor. Thus have to use something else,
   // like component name
   const parentDocument = window.parent.document
-  // @ts-ignore
-  const specDocument = parentDocument.querySelector('iframe.spec-iframe').contentDocument
-  // @ts-ignore
-  const appDocument = parentDocument.querySelector('iframe.aut-iframe').contentDocument
+  const specDocument = parentDocument.querySelector<HTMLIFrameElement>('iframe.spec-iframe').contentDocument
+  const specHead = specDocument.head;
+  const appDocument = parentDocument.querySelector<HTMLIFrameElement>('iframe.aut-iframe').contentDocument
 
   const hash = component.type.name
-  let styles = specDocument.querySelectorAll('head style')
+  const head = appDocument.querySelector('head')
+  let styles = Array.from(specDocument.querySelectorAll('head style'))
+  let componentCache: Array<Node> = styles;
+  
   if (styles.length) {
     cy.log(`injected ${styles.length} style(s)`)
-    Cypress.stylesCache.set(hash, styles)
+    Cypress.stylesCache.set(hash, componentCache)
+    // Check for initial applied styles
+    styles.forEach(function (style) {
+      head.appendChild(style)
+    })
   } else {
     cy.log('No styles injected for this component, checking cache')
     if (Cypress.stylesCache.has(hash)) {
-      styles = Cypress.stylesCache.get(hash)
-    } else {
-      styles = null
+      componentCache = Cypress.stylesCache.get(hash)
     }
   }
-  if (!styles) {
-    return
-  }
-  const head = appDocument.querySelector('head')
-  styles.forEach(function (style) {
-    head.appendChild(style)
-  })
+
+  // Watch for new applied styles
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach(({ type, addedNodes }) => {
+      if (type === 'childList' && addedNodes.length > 0) {
+        addedNodes.forEach((node) => {
+          if (node.nodeName !== 'STYLE') return;
+          // Move style node to correct <head>
+          head.appendChild(node);
+          // Add to component cache
+          componentCache.push(node);
+        })
+      };
+    });
+  });
+
+  observer.observe(specHead, { childList: true });
 })
 
 /**
